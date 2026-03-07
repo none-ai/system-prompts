@@ -37,7 +37,14 @@ python app.py
 | `/api/tools` | GET | 获取所有工具的JSON数据 |
 | `/api/tools/<name>` | GET | 获取指定工具的详细信息 |
 | `/health` | GET | 健康检查 |
+| `/api/tools/search?q=<query>` | GET | 搜索工具 |
+
+## 功能特性
+
+- 搜索/过滤工具：支持按名称或描述实时搜索
 
 ## 环境变量
 
 - `PORT`: 服务器端口 (默认: 5000)
+
+作者: stlin256的openclaw

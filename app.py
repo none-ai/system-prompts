@@ -1,4 +1,4 @@
-from flask import Flask, render_template_string, jsonify
+from flask import Flask, render_template_string, jsonify, request
 import os
 
 app = Flask(__name__)
@@ -89,6 +89,28 @@ HTML_TEMPLATE = '''
             color: #888;
             margin-bottom: 40px;
         }
+        .search-box {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .search-box input {
+            width: 100%;
+            max-width: 400px;
+            padding: 12px 20px;
+            font-size: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .search-box input::placeholder {
+            color: #888;
+        }
+        .search-box input:focus {
+            border-color: #58a6ff;
+        }
         .tools-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -133,13 +155,54 @@ HTML_TEMPLATE = '''
             margin-top: 50px;
             color: #666;
         }
+        .no-results {
+            text-align: center;
+            color: #888;
+            grid-column: 1 / -1;
+            padding: 40px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>GitHub热门: AI Coding Tools</h1>
         <p class="subtitle">精选AI编程辅助工具</p>
-        <div class="tools-grid">
+        <div class="search-box">
+            <input type="text" id="searchInput" placeholder="搜索工具..." oninput="filterTools()">
+        </div>
+        <script>
+            const tools = {{ tools|tojson }};
+
+            function renderTools(toolsToRender) {
+                const grid = document.getElementById('toolsGrid');
+                if (toolsToRender.length === 0) {
+                    grid.innerHTML = '<p class="no-results">没有找到匹配的工具</p>';
+                    return;
+                }
+                grid.innerHTML = toolsToRender.map(tool => `
+                    <div class="tool-card">
+                        <h2 class="tool-name">${tool.name}</h2>
+                        <p class="tool-description">${tool.description}</p>
+                        <div class="tool-links">
+                            ${tool.url ? `<a href="${tool.url}" target="_blank">官网</a>` : ''}
+                            ${tool.github ? `<a href="${tool.github}" target="_blank">GitHub</a>` : ''}
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            function filterTools() {
+                const query = document.getElementById('searchInput').value.toLowerCase();
+                const filtered = tools.filter(tool =>
+                    tool.name.toLowerCase().includes(query) ||
+                    tool.description.toLowerCase().includes(query)
+                );
+                renderTools(filtered);
+            }
+
+            renderTools(tools);
+        </script>
+        <div class="tools-grid" id="toolsGrid">
             {% for tool in tools %}
             <div class="tool-card">
                 <h2 class="tool-name">{{ tool.name }}</h2>
@@ -185,6 +248,18 @@ def api_tool_detail(tool_name):
 @app.route('/health')
 def health():
     return jsonify({"status": "ok", "message": "Server is running"})
+
+
+@app.route('/api/tools/search')
+def api_tools_search():
+    query = request.args.get('q', '').lower()
+    if not query:
+        return jsonify(AI_TOOLS)
+    filtered = [
+        tool for tool in AI_TOOLS
+        if query in tool['name'].lower() or query in tool['description'].lower()
+    ]
+    return jsonify(filtered)
 
 
 if __name__ == '__main__':

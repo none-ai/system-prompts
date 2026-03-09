@@ -417,6 +417,34 @@ HTML_TEMPLATE = '''
         .modal-links a:hover {
             opacity: 0.9;
         }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-top: 30px;
+        }
+        .pagination button {
+            padding: 8px 15px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .pagination button:hover:not(:disabled) {
+            background: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+        .pagination button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .pagination .page-info {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
     </style>
 </head>
 <body>
@@ -449,6 +477,8 @@ HTML_TEMPLATE = '''
 
         <div class="tools-grid" id="toolsGrid"></div>
 
+        <div class="pagination" id="pagination"></div>
+
         <div class="footer">
             <p>Built with Flask | 共 <span id="toolCount">0</span> 个工具</p>
         </div>
@@ -470,6 +500,9 @@ HTML_TEMPLATE = '''
         const categories = {{ categories|tojson }};
         let favorites = JSON.parse(localStorage.getItem('favorites') || '[]');
         let showFavoritesOnly = false;
+        const ITEMS_PER_PAGE = 12;
+        let currentPage = 1;
+        let filteredToolsCache = [];
 
         // Initialize category filter
         function initCategories() {
@@ -519,15 +552,27 @@ HTML_TEMPLATE = '''
             filterTools();
         }
 
-        // Render tools
+        // Render tools with pagination
         function renderTools(toolsToRender) {
+            filteredToolsCache = toolsToRender;
+            currentPage = 1;
+            renderToolsPage();
+            renderPagination();
+        }
+
+        function renderToolsPage() {
             const grid = document.getElementById('toolsGrid');
-            if (toolsToRender.length === 0) {
+            const start = (currentPage - 1) * ITEMS_PER_PAGE;
+            const end = start + ITEMS_PER_PAGE;
+            const pageTools = filteredToolsCache.slice(start, end);
+
+            if (filteredToolsCache.length === 0) {
                 grid.innerHTML = '<p class="no-results">没有找到匹配的工具</p>';
+                document.getElementById('pagination').innerHTML = '';
                 return;
             }
 
-            grid.innerHTML = toolsToRender.map(tool => `
+            grid.innerHTML = pageTools.map(tool => `
                 <div class="tool-card ${favorites.includes(tool.name) ? 'favorite' : ''}" onclick="showToolDetail('${tool.name}')">
                     <button class="favorite-btn ${favorites.includes(tool.name) ? 'active' : ''}" onclick="toggleFavorite(event, '${tool.name}')">
                         ${favorites.includes(tool.name) ? '❤️' : '🤍'}
@@ -542,8 +587,34 @@ HTML_TEMPLATE = '''
                 </div>
             `).join('');
 
-            document.getElementById('toolCount').textContent = toolsToRender.length;
-            document.getElementById('stats').textContent = showFavoritesOnly ? `显示 ${toolsToRender.length} 个收藏工具` : `共 ${tools.length} 个工具，其中 ${favorites.length} 个收藏`;
+            document.getElementById('toolCount').textContent = filteredToolsCache.length;
+            document.getElementById('stats').textContent = showFavoritesOnly ? `显示 ${filteredToolsCache.length} 个收藏工具` : `共 ${tools.length} 个工具，其中 ${favorites.length} 个收藏`;
+        }
+
+        function renderPagination() {
+            const totalPages = Math.ceil(filteredToolsCache.length / ITEMS_PER_PAGE);
+            const pagination = document.getElementById('pagination');
+
+            if (totalPages <= 1) {
+                pagination.innerHTML = '';
+                return;
+            }
+
+            let html = `
+                <button onclick="goToPage(${currentPage - 1})" ${currentPage === 1 ? 'disabled' : ''}>上一页</button>
+                <span class="page-info">${currentPage} / ${totalPages}</span>
+                <button onclick="goToPage(${currentPage + 1})" ${currentPage === totalPages ? 'disabled' : ''}>下一页</button>
+            `;
+            pagination.innerHTML = html;
+        }
+
+        function goToPage(page) {
+            const totalPages = Math.ceil(filteredToolsCache.length / ITEMS_PER_PAGE);
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderToolsPage();
+            renderPagination();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // Filter and sort tools
